@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sun Group — Gestión de Personal</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Open+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --sun-orange:#F5A623;
+  --sun-orange-dark:#D4861A;
+  --sun-orange-soft:#FFF4E0;
+  --ink:#0A0A0A;
+  --ink-2:#141414;
+  --ink-3:#1E1E1E;
+  --ink-4:#2A2A2A;
+  --slate:#6B7280;
+  --muted:#9CA3AF;
+  --line:#2E2E2E;
+  --line-light:#E5E7EB;
+  --bg:#F5F5F5;
+  --white:#FFFFFF;
+  --green:#10B981;--green-soft:#ECFDF5;
+  --red:#EF4444;--red-soft:#FEF2F2;
+  --blue:#3B82F6;--blue-soft:#EFF6FF;
+  --purple:#8B5CF6;--purple-soft:#F5F3FF;
+  --sidebar:230px;--radius:6px;
+  --shadow:0 1px 3px rgba(0,0,0,.12);
+  --shadow-md:0 4px 16px rgba(0,0,0,.15);
+  --shadow-lg:0 20px 48px rgba(0,0,0,.25);
+}
+body{font-family:'Open Sans',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;font-size:14px;line-height:1.5}
+
+/* ── LOGIN ── */
+#login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--ink);position:relative;overflow:hidden}
+#login-screen::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 50% at 50% 0%,rgba(245,166,35,.12) 0%,transparent 60%)}
+#login-screen::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--sun-orange),var(--sun-orange-dark))}
+.login-card{position:relative;z-index:1;background:var(--ink-2);border:1px solid rgba(245,166,35,.15);border-radius:10px;padding:48px 44px;width:400px;box-shadow:var(--shadow-lg)}
+.login-logo{text-align:center;margin-bottom:32px}
+.login-logo .wordmark{font-family:'Montserrat',sans-serif;font-size:28px;font-weight:900;color:white;letter-spacing:-0.5px}
+.login-logo .wordmark span{color:var(--sun-orange)}
+.login-logo .tagline{font-size:11px;color:rgba(255,255,255,.3);letter-spacing:2px;text-transform:uppercase;margin-top:4px}
+.lf-label{font-size:10.5px;font-weight:700;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;display:block}
+.lf-input{width:100%;padding:11px 14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:var(--radius);color:white;font-family:'Open Sans',sans-serif;font-size:14px;outline:none;transition:border-color .2s;margin-bottom:16px}
+.lf-input:focus{border-color:var(--sun-orange)}
+.lf-input::placeholder{color:rgba(255,255,255,.18)}
+.lf-btn{width:100%;padding:12px;background:var(--sun-orange);color:var(--ink);border:none;border-radius:var(--radius);font-family:'Montserrat',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:background .2s;margin-top:4px;letter-spacing:.3px}
+.lf-btn:hover{background:var(--sun-orange-dark)}
+.lf-btn:disabled{opacity:.5;cursor:not-allowed}
+.login-error{color:#f87171;font-size:12px;text-align:center;margin-top:10px;display:none}
+.login-loading{color:rgba(255,255,255,.35);font-size:12px;text-align:center;margin-top:10px;display:none}
+
+/* ── APP ── */
+#app{display:none;min-height:100vh}
+.layout{display:flex;min-height:100vh}
+
+/* ── SIDEBAR ── */
+.sidebar{width:var(--sidebar);background:var(--ink);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:100;overflow-y:auto;border-right:1px solid var(--line)}
+.sb-head{padding:20px 18px 16px;border-bottom:1px solid var(--line)}
+.sb-wordmark{font-family:'Montserrat',sans-serif;font-size:16px;font-weight:900;color:white;letter-spacing:-.3px}
+.sb-wordmark span{color:var(--sun-orange)}
+.sb-role{font-size:10px;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:.8px;margin-top:3px}
+.sb-nav{padding:12px 10px;flex:1}
+.sb-section{font-size:9.5px;font-weight:700;color:rgba(255,255,255,.18);text-transform:uppercase;letter-spacing:1.2px;padding:0 8px;margin:14px 0 4px}
+.sb-item{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:5px;cursor:pointer;transition:all .15s;font-size:13px;color:rgba(255,255,255,.45);margin-bottom:1px;font-family:'Open Sans',sans-serif}
+.sb-item:hover{background:rgba(255,255,255,.05);color:rgba(255,255,255,.8)}
+.sb-item.active{background:var(--sun-orange);color:var(--ink);font-weight:600}
+.sb-item .ic{font-size:14px;width:18px;text-align:center;flex-shrink:0}
+.sb-foot{padding:12px 10px;border-top:1px solid var(--line)}
+.sb-user{display:flex;align-items:center;gap:10px;padding:8px}
+.sb-avatar{width:32px;height:32px;border-radius:50%;background:var(--sun-orange);display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:800;color:var(--ink);flex-shrink:0}
+.sb-uname{font-size:12px;font-weight:600;color:rgba(255,255,255,.75)}
+.sb-urole{font-size:10px;color:rgba(255,255,255,.25)}
+.sb-logout{width:100%;margin-top:6px;padding:8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);color:rgba(255,255,255,.35);border-radius:5px;cursor:pointer;font-size:12px;transition:all .2s;font-family:'Open Sans',sans-serif}
+.sb-logout:hover{background:rgba(239,68,68,.15);color:#f87171;border-color:rgba(239,68,68,.2)}
+
+/* ── MAIN ── */
+.main{margin-left:var(--sidebar);flex:1;display:flex;flex-direction:column}
+.topbar{background:var(--ink);border-bottom:2px solid var(--sun-orange);padding:0 24px;height:54px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.page-title{font-family:'Montserrat',sans-serif;font-size:14px;font-weight:700;color:white;letter-spacing:.3px}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.btn-refresh{padding:6px 14px;background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);color:var(--sun-orange);border-radius:5px;cursor:pointer;font-size:12px;font-weight:600;transition:all .2s;font-family:'Open Sans',sans-serif;display:flex;align-items:center;gap:5px}
+.btn-refresh:hover{background:rgba(245,166,35,.2)}
+.btn-refresh.spinning .ref-icon{animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.topbar-date{font-size:11px;color:rgba(255,255,255,.25);font-family:'JetBrains Mono',monospace}
+.content{padding:22px;flex:1}
+
+/* ── STATS ── */
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:12px;margin-bottom:18px}
+.stat{background:var(--white);border:1px solid var(--line-light);border-radius:var(--radius);padding:16px 18px;position:relative;overflow:hidden}
+.stat::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.stat.o::before{background:var(--sun-orange)}
+.stat.g::before{background:var(--green)}
+.stat.r::before{background:var(--red)}
+.stat.b::before{background:var(--blue)}
+.stat-val{font-family:'Montserrat',sans-serif;font-size:28px;font-weight:800;line-height:1;color:var(--ink)}
+.stat-lbl{font-size:10.5px;font-weight:700;color:var(--slate);text-transform:uppercase;letter-spacing:.5px;margin-top:4px}
+.stat-sub{font-size:11px;color:var(--muted);margin-top:2px}
+
+/* ── PANEL ── */
+.panel{background:var(--white);border:1px solid var(--line-light);border-radius:var(--radius);margin-bottom:16px}
+.ph{padding:13px 17px;border-bottom:1px solid var(--line-light);display:flex;align-items:center;justify-content:space-between}
+.ph-title{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;color:var(--ink)}
+.pb{padding:17px}
+
+/* ── BUTTONS ── */
+.btn{padding:7px 14px;border-radius:5px;font-size:12.5px;font-weight:600;cursor:pointer;border:none;transition:all .15s;display:inline-flex;align-items:center;gap:5px;font-family:'Open Sans',sans-serif}
+.btn-sm{padding:5px 10px;font-size:11.5px}
+.btn-primary{background:var(--sun-orange);color:var(--ink)}.btn-primary:hover{background:var(--sun-orange-dark)}
+.btn-ghost{background:transparent;border:1.5px solid var(--line-light);color:var(--slate)}.btn-ghost:hover{border-color:var(--sun-orange);color:var(--sun-orange)}
+.btn-danger{background:var(--red);color:white}.btn-danger:hover{background:#dc2626}
+.btn-success{background:var(--green);color:white}
+
+/* ── BADGES ── */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.bg{background:var(--green-soft);color:#065f46}
+.br{background:var(--red-soft);color:#991b1b}
+.ba{background:var(--sun-orange-soft);color:#92400e}
+.bb{background:var(--blue-soft);color:#1e40af}
+.bp{background:var(--purple-soft);color:#5b21b6}
+.bgr{background:#F3F4F6;color:#374151}
+.bo{background:var(--sun-orange-soft);color:var(--sun-orange-dark);border:1px solid rgba(245,166,35,.3)}
+
+/* ── TABLE ── */
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:var(--ink);color:rgba(255,255,255,.6);padding:9px 13px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;white-space:nowrap}
+thead th:first-child{border-radius:5px 0 0 0}
+thead th:last-child{border-radius:0 5px 0 0}
+tbody td{padding:11px 13px;border-bottom:1px solid var(--line-light);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:#FAFAFA}
+.mono{font-family:'JetBrains Mono',monospace;font-size:12px}
+
+/* ── SEARCH ── */
+.search-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.si-wrap{position:relative;flex:1;min-width:180px}
+.si-wrap input{width:100%;padding:8px 12px 8px 32px;border:1.5px solid var(--line-light);border-radius:5px;font-size:13px;outline:none;transition:border-color .2s;font-family:'Open Sans',sans-serif;background:white}
+.si-wrap input:focus{border-color:var(--sun-orange)}
+.si-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:12px}
+.fsel{padding:8px 11px;border:1.5px solid var(--line-light);border-radius:5px;font-size:12.5px;color:var(--ink);background:white;outline:none;cursor:pointer;font-family:'Open Sans',sans-serif}
+.fsel:focus{border-color:var(--sun-orange)}
+
+/* ── PROGRESS ── */
+.prog-bar{height:5px;background:#E5E7EB;border-radius:3px;overflow:hidden;margin-top:5px}
+.prog-fill{height:100%;border-radius:3px;transition:width .3s}
+.pf-g{background:var(--green)}.pf-a{background:var(--sun-orange)}.pf-r{background:var(--red)}.pf-b{background:var(--blue)}
+
+/* ── MODAL ── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:none;align-items:flex-start;justify-content:center;padding:28px 16px;overflow-y:auto;backdrop-filter:blur(3px)}
+.overlay.open{display:flex}
+.modal{background:white;border-radius:8px;width:100%;max-width:640px;box-shadow:var(--shadow-lg);border-top:3px solid var(--sun-orange)}
+.modal.wide{max-width:820px}
+.mh{padding:16px 20px;border-bottom:1px solid var(--line-light);display:flex;align-items:center;justify-content:space-between}
+.mh-title{font-family:'Montserrat',sans-serif;font-size:14px;font-weight:700;color:var(--ink)}
+.mclose{background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1;padding:2px 6px}
+.mclose:hover{color:var(--ink)}
+.mb{padding:20px}.mf{padding:12px 20px;border-top:1px solid var(--line-light);display:flex;justify-content:flex-end;gap:8px}
+
+/* ── FORM ── */
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+.fgrid .full{grid-column:1/-1}
+.field label{display:block;font-size:10.5px;font-weight:700;color:var(--slate);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+.field input,.field select,.field textarea{width:100%;padding:8px 11px;border:1.5px solid var(--line-light);border-radius:5px;font-family:'Open Sans',sans-serif;font-size:13px;color:var(--ink);outline:none;transition:border-color .2s;background:white}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--sun-orange)}
+.field input:disabled,.field select:disabled{background:#F9FAFB;color:var(--muted);cursor:not-allowed}
+.field textarea{resize:vertical;min-height:70px}
+
+/* ── TABS ── */
+.tabs{display:flex;border-bottom:1px solid var(--line-light);margin-bottom:16px}
+.tab{padding:9px 16px;font-size:12.5px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s}
+.tab:hover{color:var(--ink)}.tab.active{color:var(--sun-orange);border-bottom-color:var(--sun-orange)}
+
+/* ── SECTIONS ── */
+.section{display:none}.section.active{display:block}
+
+/* ── WORKER CARD ── */
+.wcard-head{display:flex;align-items:center;gap:16px;padding:16px 18px;background:var(--ink);border-radius:5px 5px 0 0;color:white;border-bottom:2px solid var(--sun-orange)}
+.wcard-av{width:56px;height:56px;border-radius:50%;background:var(--sun-orange);display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-size:20px;font-weight:800;color:var(--ink);flex-shrink:0}
+.wcard-name{font-family:'Montserrat',sans-serif;font-size:17px;font-weight:700}
+.wcard-meta{font-size:12px;color:rgba(255,255,255,.45);margin-top:2px}
+.wcard-badges{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px}
+.info-block-title{font-family:'Montserrat',sans-serif;font-size:10px;font-weight:700;color:var(--slate);text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--sun-orange-soft)}
+.ir{display:flex;gap:6px;margin-bottom:7px;font-size:12.5px}
+.ir-lbl{color:var(--muted);min-width:100px;flex-shrink:0;font-size:12px}
+.ir-val{color:var(--ink);font-weight:600}
+
+/* ── HOSPEDAJE CARDS ── */
+.hcard{background:white;border:1px solid var(--line-light);border-radius:var(--radius);overflow:hidden}
+.hcard-top{background:var(--ink);padding:14px 16px;border-bottom:2px solid var(--sun-orange)}
+.hcard-name{font-family:'Montserrat',sans-serif;font-size:14px;font-weight:700;color:white}
+.hcard-addr{font-size:11px;color:rgba(255,255,255,.35);margin-top:2px}
+.hcard-body{padding:14px 16px}
+.hcard-nums{display:flex;gap:12px;margin-bottom:10px}
+.hn{text-align:center;flex:1;background:var(--bg);border-radius:4px;padding:8px 4px}
+.hn-val{font-family:'Montserrat',sans-serif;font-size:20px;font-weight:800;line-height:1}
+.hn-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+.hn-val.gr{color:var(--green)}.hn-val.re{color:var(--red)}.hn-val.or{color:var(--sun-orange)}
+
+/* ── HAB MINI ── */
+.hab-mini{border:1px solid var(--line-light);border-radius:5px;overflow:hidden;margin-bottom:8px}
+.hab-mini-head{display:flex;justify-content:space-between;align-items:center;padding:8px 11px;background:var(--bg);border-bottom:1px solid var(--line-light)}
+.hab-mini-name{font-size:12px;font-weight:700;color:var(--ink)}
+.hab-mini-tipo{font-size:10px;font-weight:600}
+.hab-mini-ocup{font-size:11px;color:var(--muted)}
+.hab-mini-body{padding:8px 11px}
+.hab-persona{font-size:11.5px;color:var(--slate);display:flex;align-items:center;gap:5px;margin-bottom:3px}
+.pareja-tag{display:inline-flex;align-items:center;gap:4px;background:var(--purple-soft);color:var(--purple);padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600}
+
+/* ── HAB CONFIG ── */
+.hab-config-row{display:grid;grid-template-columns:1fr 80px 110px;gap:8px;align-items:center;margin-bottom:8px}
+.hab-config-row input,.hab-config-row select{padding:7px 10px;border:1.5px solid var(--line-light);border-radius:5px;font-size:12.5px;font-family:'Open Sans',sans-serif;outline:none}
+.hab-config-row input:focus,.hab-config-row select:focus{border-color:var(--sun-orange)}
+
+/* ── ALERT ── */
+.alert-info{background:var(--sun-orange-soft);border:1px solid rgba(245,166,35,.3);color:var(--sun-orange-dark);padding:10px 14px;border-radius:5px;font-size:12.5px;display:flex;align-items:center;gap:8px;margin-bottom:14px}
+
+/* ── EMPTY ── */
+.empty{text-align:center;padding:40px 20px;color:var(--muted)}
+.empty-icon{font-size:36px;margin-bottom:10px}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:20px;right:20px;background:var(--ink);color:white;padding:11px 18px;border-radius:6px;font-size:13px;font-weight:600;z-index:9999;display:none;box-shadow:var(--shadow-md);border-left:3px solid var(--sun-orange)}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="wordmark">Sun <span>Group</span></div>
+      <div class="tagline">Portal de Gestión de Personal</div>
+    </div>
+    <label class="lf-label">Correo electrónico</label>
+    <input class="lf-input" id="li-email" type="email" placeholder="usuario@sungroup.com">
+    <label class="lf-label">Contraseña</label>
+    <input class="lf-input" id="li-pass" type="password" placeholder="••••••••">
+    <button class="lf-btn" id="li-btn" onclick="doLogin()">INGRESAR</button>
+    <div class="login-error" id="li-err">Correo o contraseña incorrectos</div>
+    <div class="login-loading" id="li-load">Verificando acceso...</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+<div class="layout">
+
+  <nav class="sidebar">
+    <div class="sb-head">
+      <div class="sb-wordmark">Sun <span>Group</span></div>
+      <div class="sb-role" id="sb-role-txt">—</div>
+    </div>
+    <div class="sb-nav">
+      <div class="sb-section">Principal</div>
+      <div class="sb-item active" onclick="nav('dashboard',this)"><span class="ic">📊</span>Dashboard</div>
+      <div class="sb-section">Personal</div>
+      <div class="sb-item" onclick="nav('trabajadores',this)"><span class="ic">👥</span>Trabajadores</div>
+      <div class="sb-section">Instalaciones</div>
+      <div class="sb-item" onclick="nav('hospedajes',this)"><span class="ic">🏠</span>Hospedajes</div>
+      <div class="sb-section admin-only">Administración</div>
+      <div class="sb-item admin-only" onclick="nav('coordinadores',this)"><span class="ic">🔐</span>Coordinadores</div>
+      <div class="sb-item admin-only" onclick="nav('areas',this)"><span class="ic">🏭</span>Áreas</div>
+    </div>
+    <div class="sb-foot">
+      <div class="sb-user">
+        <div class="sb-avatar" id="sb-av">--</div>
+        <div>
+          <div class="sb-uname" id="sb-uname">—</div>
+          <div class="sb-urole" id="sb-urole">—</div>
+        </div>
+      </div>
+      <button class="sb-logout" onclick="doLogout()">← Cerrar sesión</button>
+    </div>
+  </nav>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="page-title" id="page-title">DASHBOARD</div>
+      <div class="topbar-right">
+        <button class="btn-refresh" onclick="refreshData()" id="btn-refresh">
+          <span class="ref-icon">🔄</span> Actualizar
+        </button>
+        <div class="topbar-date" id="topbar-date"></div>
+      </div>
+    </div>
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div class="section active" id="s-dashboard">
+        <div class="stats-row" id="dash-stats"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div class="panel"><div class="ph"><span class="ph-title">POR ÁREA DE TRABAJO</span></div><div class="pb" id="dash-areas"></div></div>
+          <div class="panel"><div class="ph"><span class="ph-title">OCUPACIÓN DE HOSPEDAJES</span></div><div class="pb" id="dash-hosp"></div></div>
+        </div>
+        <div class="panel" style="margin-top:14px">
+          <div class="ph"><span class="ph-title">TRABAJADORES REGISTRADOS</span></div>
+          <div class="pb tw" id="dash-recientes"></div>
+        </div>
+      </div>
+
+      <!-- TRABAJADORES -->
+      <div class="section" id="s-trabajadores">
+        <div class="panel">
+          <div class="ph">
+            <span class="ph-title">REGISTRO DE PERSONAL</span>
+            <button class="btn btn-primary btn-sm" id="btn-nuevo-w" onclick="openWorker()">+ Nuevo trabajador</button>
+          </div>
+          <div class="pb">
+            <div class="search-row">
+              <div class="si-wrap"><span class="si-icon">🔍</span><input type="text" id="sw-q" placeholder="Buscar por nombre o cédula..." oninput="filterW()"></div>
+              <select class="fsel" id="sw-area" onchange="filterW()"><option value="">Todas las áreas</option></select>
+              <select class="fsel" id="sw-turno" onchange="filterW()"><option value="">Todos los turnos</option><option>Turno 1</option><option>Turno 2</option></select>
+              <select class="fsel" id="sw-pareja" onchange="filterW()"><option value="">Estado pareja</option><option value="soltero">Soltero/a</option><option value="pareja">Con pareja</option></select>
+              <select class="fsel" id="sw-hosp" onchange="filterW()"><option value="">Todos los hospedajes</option></select>
+            </div>
+            <div class="tw"><table>
+              <thead><tr><th>Trabajador</th><th>Cédula</th><th>País</th><th>Área</th><th>Turno</th><th>Hospedaje</th><th>Habitación</th><th>Pareja</th><th>Acciones</th></tr></thead>
+              <tbody id="w-tbody"></tbody>
+            </table></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HOSPEDAJES -->
+      <div class="section" id="s-hospedajes">
+        <div class="panel">
+          <div class="ph">
+            <span class="ph-title">HOSPEDAJES Y HABITACIONES</span>
+            <button class="btn btn-primary btn-sm" id="btn-nuevo-hosp" onclick="openHospedaje()">+ Nuevo hospedaje</button>
+          </div>
+          <div class="pb"><div id="hosp-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:14px"></div></div>
+        </div>
+      </div>
+
+      <!-- COORDINADORES -->
+      <div class="section" id="s-coordinadores">
+        <div class="panel">
+          <div class="ph"><span class="ph-title">COORDINADORES DEL SISTEMA</span><button class="btn btn-primary btn-sm" onclick="openCoord()">+ Nuevo coordinador</button></div>
+          <div class="pb tw"><table>
+            <thead><tr><th>Nombre</th><th>Correo</th><th>Tipo</th><th>Áreas que gestiona</th><th>Hospedaje</th><th>Acciones</th></tr></thead>
+            <tbody id="coord-tbody"></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- AREAS -->
+      <div class="section" id="s-areas">
+        <div class="panel">
+          <div class="ph"><span class="ph-title">ÁREAS DE LA EMPRESA</span><button class="btn btn-primary btn-sm" onclick="openArea()">+ Nueva área</button></div>
+          <div class="pb tw"><table>
+            <thead><tr><th>Área</th><th>Descripción</th><th>Trabajadores</th><th>Acciones</th></tr></thead>
+            <tbody id="areas-tbody"></tbody>
+          </table></div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+</div>
+
+<!-- MODAL TRABAJADOR -->
+<div class="overlay" id="m-worker">
+  <div class="modal wide">
+    <div class="mh"><span class="mh-title" id="m-worker-title">Registrar Trabajador</span><button class="mclose" onclick="closeM('m-worker')">×</button></div>
+    <div class="mb">
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab(this,'t-personal')">👤 Personal</div>
+        <div class="tab" onclick="switchTab(this,'t-laboral')">🏭 Laboral</div>
+        <div class="tab" onclick="switchTab(this,'t-alojamiento')">🏠 Alojamiento</div>
+      </div>
+      <div id="t-personal">
+        <div class="fgrid">
+          <div class="field full"><label>Nombre completo</label><input id="w-nombre" placeholder="Juan Carlos Pérez García"></div>
+          <div class="field"><label>Cédula / Documento</label><input id="w-cedula" class="mono" placeholder="1234567890"></div>
+          <div class="field"><label>Fecha de nacimiento</label><input type="date" id="w-nac"></div>
+          <div class="field"><label>País de origen</label>
+            <select id="w-pais"><option value="">Seleccionar...</option><option>Colombia</option><option>Venezuela</option><option>Perú</option><option>Ecuador</option><option>Bolivia</option><option>México</option><option>República Dominicana</option><option>Honduras</option><option>Otro</option></select>
+          </div>
+          <div class="field"><label>Teléfono</label><input id="w-tel" placeholder="+57 300 000 0000"></div>
+          <div class="field"><label>Fecha de ingreso</label><input type="date" id="w-ingreso"></div>
+          <div class="field"><label>Estado</label><select id="w-estado"><option>Activo</option><option>Inactivo</option><option>Desvinculado</option></select></div>
+          <div class="field"><label>Estado de pareja</label>
+            <select id="w-pareja-estado" onchange="togglePareja()">
+              <option value="soltero">Soltero/a</option>
+              <option value="pareja-interna">Con pareja (trabaja aquí)</option>
+              <option value="pareja-externa">Con pareja (no trabaja aquí)</option>
+            </select>
+          </div>
+          <div class="field full" id="pareja-campo" style="display:none">
+            <label>Pareja (trabajador/a en la empresa)</label>
+            <select id="w-pareja-id"><option value="">Seleccionar...</option></select>
+          </div>
+        </div>
+      </div>
+      <div id="t-laboral" style="display:none">
+        <div class="fgrid">
+          <div class="field"><label>Área de trabajo</label><select id="w-area"><option value="">Seleccionar área...</option></select></div>
+          <div class="field"><label>Turno</label><select id="w-turno"><option>Turno 1</option><option>Turno 2</option></select></div>
+          <div class="field full"><label>Cargo / Función</label><input id="w-cargo" placeholder="Ej: Operario de línea"></div>
+        </div>
+      </div>
+      <div id="t-alojamiento" style="display:none">
+        <div id="aloj-lock" class="alert-info" style="display:none">🔒 Solo el Coordinador de Hospedajes puede editar el alojamiento.</div>
+        <div class="fgrid" id="aloj-fields">
+          <div class="field"><label>Hospedaje</label><select id="w-hosp" onchange="updateHabs()"><option value="">Sin asignar</option></select></div>
+          <div class="field"><label>Habitación</label><select id="w-hab"><option value="">Sin asignar</option></select></div>
+        </div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-ghost" onclick="closeM('m-worker')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-worker" onclick="saveWorker()">Guardar trabajador</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PERFIL -->
+<div class="overlay" id="m-profile">
+  <div class="modal wide">
+    <div class="mh"><span class="mh-title">Expediente del Trabajador</span><button class="mclose" onclick="closeM('m-profile')">×</button></div>
+    <div class="mb" id="m-profile-body"></div>
+    <div class="mf">
+      <button class="btn btn-ghost btn-sm" onclick="closeM('m-profile')">Cerrar</button>
+      <button class="btn btn-primary btn-sm" id="profile-edit-btn">✏️ Editar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL HOSPEDAJE -->
+<div class="overlay" id="m-hosp">
+  <div class="modal wide">
+    <div class="mh"><span class="mh-title" id="m-hosp-title">Nuevo Hospedaje</span><button class="mclose" onclick="closeM('m-hosp')">×</button></div>
+    <div class="mb">
+      <div class="fgrid">
+        <div class="field full"><label>Nombre / Código del hospedaje</label><input id="h-nombre" placeholder="Casa Norte 1"></div>
+        <div class="field full"><label>Dirección completa</label><input id="h-dir" placeholder="ul. Marszałkowska 12, Varsovia"></div>
+        <div class="field"><label>Ciudad</label><input id="h-ciudad" placeholder="Varsovia"></div>
+        <div class="field"><label>Teléfono</label><input id="h-tel" placeholder="+48 000 000 000"></div>
+        <div class="field"><label>Número de habitaciones</label><input type="number" id="h-hab-count" min="1" placeholder="5" oninput="genHabs()"></div>
+        <div class="field"><label>Camas por habitación (defecto)</label><input type="number" id="h-camas-def" min="1" value="4" oninput="genHabs()"></div>
+        <div class="field full" id="h-habs-config" style="display:none">
+          <label>Configurar habitaciones</label>
+          <div style="display:grid;grid-template-columns:1fr 80px 130px;gap:6px;margin:8px 0 4px;padding:0 2px">
+            <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Nombre</span>
+            <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Camas</span>
+            <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Tipo</span>
+          </div>
+          <div id="h-habs-list"></div>
+        </div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-ghost" onclick="closeM('m-hosp')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-hosp" onclick="saveHospedaje()">Guardar hospedaje</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL COORDINADOR -->
+<div class="overlay" id="m-coord">
+  <div class="modal">
+    <div class="mh"><span class="mh-title" id="m-coord-title">Nuevo Coordinador</span><button class="mclose" onclick="closeM('m-coord')">×</button></div>
+    <div class="mb">
+      <div class="fgrid">
+        <div class="field full"><label>Nombre completo</label><input id="c-nombre" placeholder="Nombre del coordinador"></div>
+        <div class="field full"><label>Correo electrónico</label><input type="email" id="c-email" placeholder="coord@sungroup.com"></div>
+        <div class="field full" id="c-pass-field">
+          <label id="c-pass-label">Contraseña</label>
+          <input type="password" id="c-pass" placeholder="Mínimo 6 caracteres">
+        </div>
+        <div class="field"><label>Tipo</label>
+          <select id="c-tipo" onchange="updateCoordForm()">
+            <option value="area">Coordinador de Área</option>
+            <option value="hospedaje">Coordinador de Hospedajes</option>
+            <option value="superadmin">Super Admin</option>
+          </select>
+        </div>
+        <div class="field full" id="c-areas-field">
+          <label>Áreas que puede editar</label>
+          <div id="c-areas-check" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px"></div>
+        </div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-ghost" onclick="closeM('m-coord')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-save-coord" onclick="saveCoord()">Crear coordinador</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ÁREA -->
+<div class="overlay" id="m-area">
+  <div class="modal" style="max-width:420px">
+    <div class="mh"><span class="mh-title" id="m-area-title">Nueva Área</span><button class="mclose" onclick="closeM('m-area')">×</button></div>
+    <div class="mb">
+      <div class="fgrid">
+        <div class="field full"><label>Nombre del área</label><input id="a-nombre" placeholder="Ej: Producción"></div>
+        <div class="field full"><label>Descripción</label><textarea id="a-desc" placeholder="Descripción breve..."></textarea></div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-ghost" onclick="closeM('m-area')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveArea()">Guardar área</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const { createClient } = supabase;
+const SB = createClient(
+  'https://rfekglggosjyjbvbfrde.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmZWtnbGdnb3NqeWpidmJmcmRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3NDM2NjcsImV4cCI6MjA5ODMxOTY2N30.kNa_kSNn-kjulCgQSaP3QQJ-0iqM3DHyn45oAJUGUxA'
+);
+
+let CU = null;
+let ALL = { areas:[], hospedajes:[], habitaciones:[], trabajadores:[], coordinadores:[] };
+let editWId=null, editHId=null, editCId=null, editAId=null;
+let currentSection = 'dashboard';
+
+// ══ AUTH ══
+async function doLogin(){
+  const email=document.getElementById('li-email').value.trim();
+  const pass=document.getElementById('li-pass').value;
+  document.getElementById('li-err').style.display='none';
+  document.getElementById('li-load').style.display='block';
+  document.getElementById('li-btn').disabled=true;
+  const {error}=await SB.auth.signInWithPassword({email,password:pass});
+  if(error){
+    document.getElementById('li-err').style.display='block';
+    document.getElementById('li-load').style.display='none';
+    document.getElementById('li-btn').disabled=false;
+    return;
+  }
+  const {data:coord}=await SB.from('coordinadores').select('*').eq('email',email).single();
+  if(!coord){
+    await SB.auth.signOut();
+    document.getElementById('li-err').textContent='Usuario no tiene perfil de coordinador.';
+    document.getElementById('li-err').style.display='block';
+    document.getElementById('li-load').style.display='none';
+    document.getElementById('li-btn').disabled=false;
+    return;
+  }
+  CU=coord;
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('li-load').style.display='none';
+  document.getElementById('li-btn').disabled=false;
+  await loadAll();
+  setupShell();
+  renderDashboard();
+}
+
+async function doLogout(){
+  await SB.auth.signOut();
+  CU=null;
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('app').style.display='none';
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&document.getElementById('login-screen').style.display!=='none') doLogin();
+});
+
+// ══ REFRESH ══
+async function refreshData(){
+  const btn=document.getElementById('btn-refresh');
+  btn.classList.add('spinning');
+  btn.querySelector('.ref-icon').style.display='inline-block';
+  await loadAll();
+  // Re-render sección actual
+  if(currentSection==='dashboard') renderDashboard();
+  else if(currentSection==='trabajadores') { renderWorkers(); }
+  else if(currentSection==='hospedajes') renderHospedajes();
+  else if(currentSection==='coordinadores') renderCoords();
+  else if(currentSection==='areas') renderAreas();
+  setTimeout(()=>btn.classList.remove('spinning'),600);
+  showToast('✅ Datos actualizados');
+}
+
+// ══ LOAD ══
+async function loadAll(){
+  const [a,h,r,w,c]=await Promise.all([
+    SB.from('areas').select('*').order('nombre'),
+    SB.from('hospedajes').select('*').order('nombre'),
+    SB.from('habitaciones').select('*').order('nombre'),
+    SB.from('trabajadores').select('*').order('nombre'),
+    SB.from('coordinadores').select('*').order('nombre'),
+  ]);
+  ALL.areas=a.data||[];
+  ALL.hospedajes=h.data||[];
+  ALL.habitaciones=r.data||[];
+  ALL.trabajadores=w.data||[];
+  ALL.coordinadores=c.data||[];
+}
+
+// ══ PERMISOS ══
+function canEditWorker(w){
+  if(CU.tipo==='superadmin') return true;
+  if(CU.tipo==='hospedaje') return false;
+  return (CU.areas_editar||[]).includes(w.area);
+}
+function canEditHospedaje(){ return CU.puede_editar_hospedaje||CU.tipo==='superadmin'; }
+function canEditAlojamiento(){ return CU.puede_editar_hospedaje||CU.tipo==='superadmin'; }
+
+// ══ SHELL ══
+function setupShell(){
+  const ini=CU.nombre.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  document.getElementById('sb-av').textContent=ini;
+  document.getElementById('sb-uname').textContent=CU.nombre;
+  const rolTxt={superadmin:'Super Admin',area:`Coord. ${(CU.areas_editar||[]).join(' · ')}`,hospedaje:'Coord. Hospedajes'}[CU.tipo]||CU.tipo;
+  document.getElementById('sb-urole').textContent=rolTxt;
+  document.getElementById('sb-role-txt').textContent=rolTxt;
+  document.getElementById('topbar-date').textContent=new Date().toLocaleDateString('es-CO',{weekday:'short',year:'numeric',month:'short',day:'numeric'});
+  document.querySelectorAll('.admin-only').forEach(el=>el.style.display=CU.tipo==='superadmin'?'':'none');
+}
+
+// ══ NAV ══
+function nav(name,el){
+  currentSection=name;
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(s=>s.classList.remove('active'));
+  document.getElementById('s-'+name).classList.add('active');
+  if(el) el.classList.add('active');
+  const titles={dashboard:'DASHBOARD',trabajadores:'TRABAJADORES',hospedajes:'HOSPEDAJES',coordinadores:'COORDINADORES',areas:'ÁREAS'};
+  document.getElementById('page-title').textContent=titles[name]||name.toUpperCase();
+  if(name==='trabajadores') renderWorkers();
+  if(name==='hospedajes') renderHospedajes();
+  if(name==='coordinadores') renderCoords();
+  if(name==='areas') renderAreas();
+}
+
+// ══ DASHBOARD ══
+function renderDashboard(){
+  const ws=ALL.trabajadores;
+  const activos=ws.filter(w=>w.estado==='Activo').length;
+  const parejas=Math.round(ws.filter(w=>w.pareja_estado==='pareja-interna').length/2);
+  const camasTotal=ALL.habitaciones.reduce((a,r)=>a+r.camas,0);
+  const camasOcup=ws.filter(w=>w.habitacion_id).length;
+
+  document.getElementById('dash-stats').innerHTML=`
+    <div class="stat o"><div class="stat-val">${activos}</div><div class="stat-lbl">Trabajadores activos</div><div class="stat-sub">de ${ws.length} registrados</div></div>
+    <div class="stat g"><div class="stat-val">${ALL.hospedajes.length}</div><div class="stat-lbl">Hospedajes</div><div class="stat-sub">${camasTotal} camas totales</div></div>
+    <div class="stat b"><div class="stat-val">${camasTotal-camasOcup}</div><div class="stat-lbl">Camas disponibles</div><div class="stat-sub">${camasOcup} ocupadas</div></div>
+    <div class="stat r"><div class="stat-val">${parejas}</div><div class="stat-lbl">Parejas registradas</div><div class="stat-sub">trabajando juntos</div></div>
+  `;
+
+  const porArea={};
+  ws.forEach(w=>{porArea[w.area]=(porArea[w.area]||0)+1;});
+  document.getElementById('dash-areas').innerHTML=Object.entries(porArea).map(([k,v])=>`
+    <div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px"><span><strong>${k}</strong></span><span>${v}</span></div>
+      <div class="prog-bar"><div class="prog-fill pf-a" style="width:${ws.length?Math.round(v/ws.length*100):0}%"></div></div>
+    </div>`).join('')||'<div class="empty"><p>Sin datos</p></div>';
+
+  document.getElementById('dash-hosp').innerHTML=ALL.hospedajes.map(h=>{
+    const habs=ALL.habitaciones.filter(r=>r.hospedaje_id===h.id);
+    const total=habs.reduce((a,r)=>a+r.camas,0);
+    const ocup=ws.filter(w=>w.hospedaje_id===h.id).length;
+    const pct=total?Math.round(ocup/total*100):0;
+    const cls=pct>=90?'pf-r':pct>=70?'pf-a':'pf-g';
+    return `<div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px"><span><strong>${h.nombre}</strong></span><span>${ocup}/${total} camas</span></div>
+      <div class="prog-bar"><div class="prog-fill ${cls}" style="width:${pct}%"></div></div>
+    </div>`;
+  }).join('')||'<div class="empty"><p>Sin hospedajes</p></div>';
+
+  document.getElementById('dash-recientes').innerHTML=`<table><thead><tr><th>Nombre</th><th>Área</th><th>Turno</th><th>Hospedaje</th><th>Estado</th></tr></thead><tbody>
+    ${ws.slice(0,8).map(w=>{
+      const h=ALL.hospedajes.find(x=>x.id===w.hospedaje_id);
+      return `<tr><td><strong>${w.nombre}</strong></td><td>${w.area||'—'}</td><td>${w.turno||'—'}</td><td>${h?h.nombre:'—'}</td><td><span class="badge ${w.estado==='Activo'?'bg':'br'}">${w.estado}</span></td></tr>`;
+    }).join('')}
+  </tbody></table>`;
+}
+
+// ══ TRABAJADORES ══
+function renderWorkers(){
+  document.getElementById('sw-area').innerHTML='<option value="">Todas las áreas</option>'+ALL.areas.map(a=>`<option>${a.nombre}</option>`).join('');
+  document.getElementById('sw-hosp').innerHTML='<option value="">Todos los hospedajes</option>'+ALL.hospedajes.map(h=>`<option value="${h.id}">${h.nombre}</option>`).join('');
+  filterW();
+}
+
+function filterW(){
+  const q=(document.getElementById('sw-q').value||'').toLowerCase();
+  const area=document.getElementById('sw-area').value;
+  const turno=document.getElementById('sw-turno').value;
+  const pareja=document.getElementById('sw-pareja').value;
+  const hosp=document.getElementById('sw-hosp').value;
+  const ws=ALL.trabajadores.filter(w=>
+    (!q||w.nombre.toLowerCase().includes(q)||(w.cedula||'').includes(q))&&
+    (!area||w.area===area)&&
+    (!turno||w.turno===turno)&&
+    (!pareja||(pareja==='soltero'?w.pareja_estado==='soltero':w.pareja_estado!=='soltero'))&&
+    (!hosp||w.hospedaje_id===hosp)
+  );
+  const tbody=document.getElementById('w-tbody');
+  if(!ws.length){tbody.innerHTML=`<tr><td colspan="9"><div class="empty"><div class="empty-icon">👥</div><p>No se encontraron trabajadores</p></div></td></tr>`;return;}
+  tbody.innerHTML=ws.map(w=>{
+    const h=ALL.hospedajes.find(x=>x.id===w.hospedaje_id);
+    const hab=ALL.habitaciones.find(x=>x.id===w.habitacion_id);
+    const par=w.pareja_id?ALL.trabajadores.find(x=>x.id===w.pareja_id):null;
+    const canEdit=canEditWorker(w)||canEditAlojamiento();
+    return `<tr>
+      <td><div style="font-weight:600">${w.nombre}</div><div style="font-size:11px;color:var(--muted)">${w.cargo||''}</div></td>
+      <td class="mono">${w.cedula||'—'}</td>
+      <td>${w.pais_origen||'—'}</td>
+      <td><span class="badge bo">${w.area||'—'}</span></td>
+      <td><span class="badge bgr">${w.turno||'—'}</span></td>
+      <td>${h?`<div style="font-size:12px;font-weight:600">${h.nombre}</div>`:'—'}</td>
+      <td>${hab?`<span class="badge bgr">${hab.nombre}</span>${hab.tipo_habitacion==='pareja'?'<span class="pareja-tag" style="margin-left:4px">💑</span>':''}` :'—'}</td>
+      <td>${w.pareja_estado==='pareja-interna'&&par?`<span class="pareja-tag">💑 ${par.nombre.split(' ')[0]}</span>`:w.pareja_estado==='pareja-externa'?`<span class="badge ba">Externa</span>`:'<span style="color:var(--muted);font-size:11px">Soltero/a</span>'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-ghost btn-sm" onclick="viewWorker('${w.id}')">👁</button>
+        ${canEdit?`<button class="btn btn-primary btn-sm" onclick="editWorker('${w.id}')">✏️</button>`:''}
+        ${CU.tipo==='superadmin'?`<button class="btn btn-danger btn-sm" onclick="delWorker('${w.id}')">🗑</button>`:''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function viewWorker(id){
+  const w=ALL.trabajadores.find(x=>x.id===id);
+  const h=ALL.hospedajes.find(x=>x.id===w.hospedaje_id);
+  const hab=ALL.habitaciones.find(x=>x.id===w.habitacion_id);
+  const par=w.pareja_id?ALL.trabajadores.find(x=>x.id===w.pareja_id):null;
+  const ini=w.nombre.split(' ').map(x=>x[0]).join('').slice(0,2).toUpperCase();
+  const parejaLabel=w.pareja_estado==='soltero'?'Soltero/a':w.pareja_estado==='pareja-externa'?'Con pareja (externa)':`Con pareja: ${par?par.nombre:'—'}`;
+  const compañeros=hab?ALL.trabajadores.filter(x=>x.habitacion_id===hab.id&&x.id!==w.id):[];
+  document.getElementById('m-profile-body').innerHTML=`
+    <div class="wcard-head">
+      <div class="wcard-av">${ini}</div>
+      <div>
+        <div class="wcard-name">${w.nombre}</div>
+        <div class="wcard-meta">${w.cargo||''} · ${w.area||''} · ${w.turno||''}</div>
+        <div class="wcard-badges">
+          <span class="badge ${w.estado==='Activo'?'bg':'br'}">${w.estado}</span>
+          <span class="badge bo">${w.area||'—'}</span>
+          ${w.pareja_estado==='pareja-interna'?'<span class="pareja-tag">💑 En pareja</span>':''}
+        </div>
+      </div>
+    </div>
+    <div class="info-grid">
+      <div>
+        <div class="info-block-title">Datos personales</div>
+        ${ir('Cédula',`<span class="mono">${w.cedula||'—'}</span>`)}
+        ${ir('Nacimiento',w.fecha_nacimiento||'—')}
+        ${ir('Nacionalidad',w.pais_origen||'—')}
+        ${ir('Teléfono',w.telefono||'—')}
+        ${ir('Ingreso',w.fecha_ingreso||'—')}
+        ${ir('Pareja',parejaLabel)}
+      </div>
+      <div>
+        <div class="info-block-title">Alojamiento</div>
+        ${ir('Hospedaje',h?h.nombre:'Sin asignar')}
+        ${ir('Dirección',h?h.direccion||'—':'—')}
+        ${ir('Habitación',hab?hab.nombre:'—')}
+        ${ir('Tipo hab.',hab?habTipoLabel(hab.tipo_habitacion):'—')}
+        ${ir('Camas en hab.',hab?`${hab.camas} camas`:'—')}
+        ${ir('Compañeros',compañeros.length?compañeros.map(c=>c.nombre).join(', '):'Solo')}
+      </div>
+    </div>`;
+  document.getElementById('profile-edit-btn').onclick=()=>{closeM('m-profile');editWorker(id);};
+  document.getElementById('profile-edit-btn').style.display=canEditWorker(w)||canEditAlojamiento()?'':'none';
+  openM('m-profile');
+}
+
+function habTipoLabel(t){return t==='pareja'?'💑 Para parejas':t==='soltero'?'👤 Para solteros':'—';}
+function ir(lbl,val){return `<div class="ir"><span class="ir-lbl">${lbl}</span><span class="ir-val">${val}</span></div>`;}
+
+function openWorker(){
+  editWId=null;
+  document.getElementById('m-worker-title').textContent='Registrar Trabajador';
+  clearWorkerForm();
+  setupWorkerPermisos();
+  openM('m-worker');
+}
+
+async function editWorker(id){
+  editWId=id;
+  const w=ALL.trabajadores.find(x=>x.id===id);
+  document.getElementById('m-worker-title').textContent='Editar Trabajador';
+  clearWorkerForm();
+  setupWorkerPermisos(w);
+  if(w){
+    setV('w-nombre',w.nombre);setV('w-cedula',w.cedula);setV('w-nac',w.fecha_nacimiento);
+    setV('w-pais',w.pais_origen);setV('w-tel',w.telefono);setV('w-ingreso',w.fecha_ingreso);
+    setV('w-estado',w.estado);setV('w-pareja-estado',w.pareja_estado);
+    setV('w-area',w.area);setV('w-turno',w.turno);setV('w-cargo',w.cargo);
+    togglePareja();
+    if(w.pareja_id) setV('w-pareja-id',w.pareja_id);
+    if(canEditAlojamiento()){
+      setV('w-hosp',w.hospedaje_id||'');
+      await updateHabs();
+      if(w.habitacion_id) setV('w-hab',w.habitacion_id);
+    }
+  }
+  openM('m-worker');
+}
+
+function setupWorkerPermisos(w){
+  const areaSel=document.getElementById('w-area');
+  const areas=CU.tipo==='superadmin'?ALL.areas:ALL.areas.filter(a=>(CU.areas_editar||[]).includes(a.nombre));
+  areaSel.innerHTML='<option value="">Seleccionar área...</option>'+areas.map(a=>`<option>${a.nombre}</option>`).join('');
+  const canAloj=canEditAlojamiento();
+  document.getElementById('aloj-lock').style.display=canAloj?'none':'flex';
+  document.querySelectorAll('#aloj-fields select').forEach(s=>s.disabled=!canAloj);
+  if(canAloj){
+    document.getElementById('w-hosp').innerHTML='<option value="">Sin asignar</option>'+ALL.hospedajes.map(h=>`<option value="${h.id}">${h.nombre}</option>`).join('');
+  }
+  const isHosp=CU.tipo==='hospedaje';
+  ['w-nombre','w-cedula','w-nac','w-pais','w-tel','w-ingreso','w-estado','w-pareja-estado','w-area','w-turno','w-cargo'].forEach(id=>{
+    const el=document.getElementById(id);if(el) el.disabled=isHosp;
+  });
+  const pSel=document.getElementById('w-pareja-id');
+  pSel.innerHTML='<option value="">Seleccionar...</option>'+ALL.trabajadores.filter(x=>!editWId||x.id!==editWId).map(x=>`<option value="${x.id}">${x.nombre}</option>`).join('');
+}
+
+async function updateHabs(){
+  const hospId=document.getElementById('w-hosp').value;
+  const hSel=document.getElementById('w-hab');
+  hSel.innerHTML='<option value="">Sin asignar</option>';
+  if(hospId){
+    const habs=ALL.habitaciones.filter(r=>r.hospedaje_id===hospId);
+    habs.forEach(r=>{
+      const ocup=ALL.trabajadores.filter(w=>w.habitacion_id===r.id).length;
+      const libres=r.camas-ocup;
+      const tipoIcon=r.tipo_habitacion==='pareja'?'💑':'👤';
+      hSel.innerHTML+=`<option value="${r.id}">${tipoIcon} ${r.nombre} — ${libres} libre${libres!==1?'s':''}</option>`;
+    });
+  }
+}
+
+function clearWorkerForm(){
+  ['w-nombre','w-cedula','w-nac','w-tel','w-ingreso','w-cargo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  setV('w-pais','');setV('w-estado','Activo');setV('w-pareja-estado','soltero');setV('w-turno','Turno 1');
+  document.getElementById('pareja-campo').style.display='none';
+  switchTab(document.querySelector('#m-worker .tabs .tab'),'t-personal');
+}
+
+function togglePareja(){
+  document.getElementById('pareja-campo').style.display=document.getElementById('w-pareja-estado').value==='pareja-interna'?'':'none';
+}
+
+async function saveWorker(){
+  const nombre=document.getElementById('w-nombre').value.trim();
+  const cedula=document.getElementById('w-cedula').value.trim();
+  if(!nombre||!cedula){showToast('⚠️ Nombre y cédula son obligatorios');return;}
+  const isHosp=CU.tipo==='hospedaje';
+  const data={
+    ...(isHosp?{}:{nombre,cedula,fecha_nacimiento:document.getElementById('w-nac').value||null,pais_origen:document.getElementById('w-pais').value,telefono:document.getElementById('w-tel').value,fecha_ingreso:document.getElementById('w-ingreso').value||null,estado:document.getElementById('w-estado').value,pareja_estado:document.getElementById('w-pareja-estado').value,pareja_id:document.getElementById('w-pareja-id').value||null,area:document.getElementById('w-area').value,turno:document.getElementById('w-turno').value,cargo:document.getElementById('w-cargo').value}),
+    ...(canEditAlojamiento()?{hospedaje_id:document.getElementById('w-hosp').value||null,habitacion_id:document.getElementById('w-hab').value||null}:{}),
+  };
+  const btn=document.getElementById('btn-save-worker');
+  btn.disabled=true;btn.textContent='Guardando...';
+  const {error}=editWId?await SB.from('trabajadores').update(data).eq('id',editWId):await SB.from('trabajadores').insert(data);
+  btn.disabled=false;btn.textContent='Guardar trabajador';
+  if(error){showToast('❌ Error: '+error.message);return;}
+  showToast(editWId?'✅ Trabajador actualizado':'✅ Trabajador registrado');
+  closeM('m-worker');await loadAll();filterW();renderDashboard();
+}
+
+async function delWorker(id){
+  if(!confirm('¿Eliminar este trabajador?'))return;
+  await SB.from('trabajadores').delete().eq('id',id);
+  await loadAll();filterW();renderDashboard();
+  showToast('🗑 Trabajador eliminado');
+}
+
+// ══ HOSPEDAJES ══
+function renderHospedajes(){
+  document.getElementById('btn-nuevo-hosp').style.display=canEditHospedaje()?'':'none';
+  const grid=document.getElementById('hosp-grid');
+  if(!ALL.hospedajes.length){grid.innerHTML='<div class="empty"><div class="empty-icon">🏠</div><p>No hay hospedajes registrados</p></div>';return;}
+  grid.innerHTML=ALL.hospedajes.map(h=>{
+    const habs=ALL.habitaciones.filter(r=>r.hospedaje_id===h.id);
+    const total=habs.reduce((a,r)=>a+r.camas,0);
+    const ocup=ALL.trabajadores.filter(w=>w.hospedaje_id===h.id).length;
+    const libres=total-ocup;
+    const pct=total?Math.round(ocup/total*100):0;
+    const cls=pct>=90?'pf-r':pct>=70?'pf-a':'pf-g';
+    const habsPareja=habs.filter(r=>r.tipo_habitacion==='pareja');
+    const habsSoltero=habs.filter(r=>r.tipo_habitacion==='soltero');
+
+    const habsHTML=habs.map(r=>{
+      const residentes=ALL.trabajadores.filter(w=>w.habitacion_id===r.id);
+      const libresHab=r.camas-residentes.length;
+      const tipoClass=r.tipo_habitacion==='pareja'?'bo':'bgr';
+      const tipoLabel=r.tipo_habitacion==='pareja'?'💑 Pareja':'👤 Soltero';
+      return `<div class="hab-mini">
+        <div class="hab-mini-head">
+          <span class="hab-mini-name">${r.nombre}</span>
+          <div style="display:flex;gap:6px;align-items:center">
+            <span class="badge ${tipoClass}" style="font-size:10px">${tipoLabel}</span>
+            <span class="hab-mini-ocup">${residentes.length}/${r.camas}</span>
+          </div>
+        </div>
+        <div class="hab-mini-body">
+          ${residentes.map(w=>{
+            const par=w.pareja_id?ALL.trabajadores.find(x=>x.id===w.pareja_id):null;
+            const enMismaHab=par&&residentes.find(x=>x.id===par.id);
+            return `<div class="hab-persona">👤 ${w.nombre}${enMismaHab?'<span class="pareja-tag">💑</span>':''}</div>`;
+          }).join('')}
+          ${residentes.length===0?'<div style="font-size:11px;color:var(--muted)">Vacía</div>':''}
+          ${libresHab>0?`<div style="font-size:10px;color:var(--green);font-weight:700;margin-top:4px">${libresHab} cama${libresHab!==1?'s':''} libre${libresHab!==1?'s':''}</div>`:''}
+        </div>
+      </div>`;
+    }).join('');
+
+    return `<div class="hcard">
+      <div class="hcard-top">
+        <div class="hcard-name">${h.nombre}</div>
+        <div class="hcard-addr">📍 ${h.direccion||''}${h.ciudad?', '+h.ciudad:''}</div>
+      </div>
+      <div class="hcard-body">
+        <div class="hcard-nums">
+          <div class="hn"><div class="hn-val or">${total}</div><div class="hn-lbl">Total camas</div></div>
+          <div class="hn"><div class="hn-val re">${ocup}</div><div class="hn-lbl">Ocupadas</div></div>
+          <div class="hn"><div class="hn-val gr">${libres}</div><div class="hn-lbl">Libres</div></div>
+          <div class="hn"><div class="hn-val" style="color:var(--purple)">${habsPareja.length}</div><div class="hn-lbl">Hab. pareja</div></div>
+          <div class="hn"><div class="hn-val" style="color:var(--blue)">${habsSoltero.length}</div><div class="hn-lbl">Hab. soltero</div></div>
+        </div>
+        <div class="prog-bar"><div class="prog-fill ${cls}" style="width:${pct}%"></div></div>
+        <div style="font-size:10px;color:var(--muted);text-align:right;margin-top:2px">${pct}% ocupado</div>
+        <div style="margin-top:12px;border-top:1px solid var(--line-light);padding-top:10px">
+          <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Habitaciones (${habs.length})</div>
+          ${habsHTML||'<div style="font-size:12px;color:var(--muted)">Sin habitaciones configuradas</div>'}
+        </div>
+        ${canEditHospedaje()?`<div style="display:flex;gap:6px;margin-top:10px">
+          <button class="btn btn-ghost btn-sm" style="flex:1" onclick="editHospedaje('${h.id}')">✏️ Editar</button>
+          <button class="btn btn-danger btn-sm" onclick="delHospedaje('${h.id}')">🗑</button>
+        </div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openHospedaje(){
+  editHId=null;
+  document.getElementById('m-hosp-title').textContent='Nuevo Hospedaje';
+  ['h-nombre','h-dir','h-ciudad','h-tel','h-hab-count'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('h-camas-def').value='4';
+  document.getElementById('h-habs-config').style.display='none';
+  document.getElementById('h-habs-list').innerHTML='';
+  openM('m-hosp');
+}
+
+function editHospedaje(id){
+  editHId=id;
+  const h=ALL.hospedajes.find(x=>x.id===id);
+  const habs=ALL.habitaciones.filter(r=>r.hospedaje_id===id);
+  document.getElementById('m-hosp-title').textContent='Editar Hospedaje';
+  setV('h-nombre',h.nombre);setV('h-dir',h.direccion);setV('h-ciudad',h.ciudad);setV('h-tel',h.telefono);
+  setV('h-hab-count',habs.length);
+  genHabs();
+  setTimeout(()=>{
+    habs.forEach((r,i)=>{
+      const ni=document.getElementById(`hab-n-${i+1}`);
+      const ci=document.getElementById(`hab-c-${i+1}`);
+      const ti=document.getElementById(`hab-t-${i+1}`);
+      if(ni) ni.value=r.nombre;
+      if(ci) ci.value=r.camas;
+      if(ti) ti.value=r.tipo_habitacion||'soltero';
+    });
+  },60);
+  openM('m-hosp');
+}
+
+function genHabs(){
+  const n=parseInt(document.getElementById('h-hab-count').value)||0;
+  const def=parseInt(document.getElementById('h-camas-def').value)||4;
+  if(n<=0){document.getElementById('h-habs-config').style.display='none';return;}
+  document.getElementById('h-habs-config').style.display='';
+  let html='';
+  for(let i=1;i<=n;i++){
+    html+=`<div class="hab-config-row">
+      <input placeholder="Habitación ${i}" id="hab-n-${i}" value="Habitación ${i}">
+      <input type="number" value="${def}" id="hab-c-${i}" min="1">
+      <select id="hab-t-${i}">
+        <option value="soltero">👤 Solteros</option>
+        <option value="pareja">💑 Parejas</option>
+      </select>
+    </div>`;
+  }
+  document.getElementById('h-habs-list').innerHTML=html;
+}
+
+async function saveHospedaje(){
+  const nombre=document.getElementById('h-nombre').value.trim();
+  if(!nombre){showToast('⚠️ El nombre es obligatorio');return;}
+  const n=parseInt(document.getElementById('h-hab-count').value)||0;
+  const hospData={nombre,direccion:document.getElementById('h-dir').value,ciudad:document.getElementById('h-ciudad').value,telefono:document.getElementById('h-tel').value};
+  const btn=document.getElementById('btn-save-hosp');
+  btn.disabled=true;btn.textContent='Guardando...';
+  let hospId=editHId;
+  if(editHId){
+    await SB.from('hospedajes').update(hospData).eq('id',editHId);
+    await SB.from('habitaciones').delete().eq('hospedaje_id',editHId);
+  } else {
+    const {data}=await SB.from('hospedajes').insert(hospData).select().single();
+    hospId=data.id;
+  }
+  const habs=[];
+  for(let i=1;i<=n;i++){
+    habs.push({hospedaje_id:hospId,nombre:document.getElementById(`hab-n-${i}`)?.value||`Habitación ${i}`,camas:parseInt(document.getElementById(`hab-c-${i}`)?.value)||4,tipo_habitacion:document.getElementById(`hab-t-${i}`)?.value||'soltero'});
+  }
+  if(habs.length) await SB.from('habitaciones').insert(habs);
+  btn.disabled=false;btn.textContent='Guardar hospedaje';
+  showToast(editHId?'✅ Hospedaje actualizado':'✅ Hospedaje creado');
+  closeM('m-hosp');await loadAll();renderHospedajes();renderDashboard();
+}
+
+async function delHospedaje(id){
+  if(!confirm('¿Eliminar este hospedaje?'))return;
+  await SB.from('hospedajes').delete().eq('id',id);
+  await loadAll();renderHospedajes();renderDashboard();
+  showToast('🗑 Hospedaje eliminado');
+}
+
+// ══ COORDINADORES ══
+function renderCoords(){
+  document.getElementById('coord-tbody').innerHTML=ALL.coordinadores.map(c=>{
+    const rolTxt={superadmin:'Super Admin',area:'Coord. Área',hospedaje:'Coord. Hospedajes'}[c.tipo]||c.tipo;
+    const esTu=c.email===CU.email;
+    return `<tr>
+      <td><strong>${c.nombre}</strong></td>
+      <td style="font-size:12px;color:var(--muted)">${c.email}</td>
+      <td><span class="badge ${c.tipo==='superadmin'?'bp':c.tipo==='hospedaje'?'ba':'bb'}">${rolTxt}</span></td>
+      <td style="font-size:12px">${(c.areas_editar||[]).join(', ')||'—'}</td>
+      <td>${c.puede_editar_hospedaje?'<span class="badge bg">✔</span>':'<span class="badge br">✗</span>'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-ghost btn-sm" onclick="editCoord('${c.id}')">✏️ Editar</button>
+        ${!esTu?`<button class="btn btn-danger btn-sm" onclick="delCoord('${c.id}')">🗑</button>`:'<span style="font-size:11px;color:var(--muted);margin-left:6px">🔒 Tú</span>'}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openCoord(){
+  editCId=null;
+  document.getElementById('m-coord-title').textContent='Nuevo Coordinador';
+  document.getElementById('btn-save-coord').textContent='Crear coordinador';
+  ['c-nombre','c-email','c-pass'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('c-pass-label').textContent='Contraseña';
+  document.getElementById('c-tipo').value='area';
+  updateCoordForm();
+  openM('m-coord');
+}
+
+function editCoord(id){
+  editCId=id;
+  const c=ALL.coordinadores.find(x=>x.id===id);
+  document.getElementById('m-coord-title').textContent='Editar Coordinador';
+  document.getElementById('btn-save-coord').textContent='Guardar cambios';
+  document.getElementById('c-nombre').value=c.nombre;
+  document.getElementById('c-email').value=c.email;
+  document.getElementById('c-pass').value='';
+  document.getElementById('c-pass-label').textContent='Nueva contraseña (vacío = no cambiar)';
+  document.getElementById('c-tipo').value=c.tipo;
+  updateCoordForm();
+  setTimeout(()=>{
+    document.querySelectorAll('#c-areas-check input').forEach(cb=>{cb.checked=(c.areas_editar||[]).includes(cb.value);});
+  },50);
+  openM('m-coord');
+}
+
+function updateCoordForm(){
+  const tipo=document.getElementById('c-tipo').value;
+  document.getElementById('c-areas-field').style.display=tipo==='area'?'':'none';
+  if(tipo==='area'){
+    document.getElementById('c-areas-check').innerHTML=ALL.areas.map(a=>`
+      <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;background:var(--bg);padding:5px 10px;border-radius:4px;border:1px solid var(--line-light)">
+        <input type="checkbox" value="${a.nombre}" style="accent-color:var(--sun-orange)"> ${a.nombre}
+      </label>`).join('');
+  }
+}
+
+async function saveCoord(){
+  const nombre=document.getElementById('c-nombre').value.trim();
+  const email=document.getElementById('c-email').value.trim();
+  const pass=document.getElementById('c-pass').value;
+  const tipo=document.getElementById('c-tipo').value;
+  const areas=[...document.querySelectorAll('#c-areas-check input:checked')].map(x=>x.value);
+  const puedeHosp=tipo==='hospedaje'||tipo==='superadmin';
+  if(!nombre||!email){showToast('⚠️ Nombre y correo son obligatorios');return;}
+  const btn=document.getElementById('btn-save-coord');
+  btn.disabled=true;btn.textContent='Guardando...';
+
+  if(editCId){
+    const {error}=await SB.from('coordinadores').update({nombre,email,tipo,areas_editar:areas,puede_editar_hospedaje:puedeHosp}).eq('id',editCId);
+    if(error){showToast('❌ Error: '+error.message);btn.disabled=false;btn.textContent='Guardar cambios';return;}
+    showToast('✅ Coordinador actualizado');
+  } else {
+    if(!pass||pass.length<6){showToast('⚠️ Contraseña mínimo 6 caracteres');btn.disabled=false;btn.textContent='Crear coordinador';return;}
+    await SB.auth.signUp({email,password:pass});
+    const {error}=await SB.from('coordinadores').insert({nombre,email,tipo,areas_editar:areas,puede_editar_hospedaje:puedeHosp});
+    if(error){showToast('❌ Error: '+error.message);btn.disabled=false;btn.textContent='Crear coordinador';return;}
+    showToast('✅ Coordinador creado — Ya puede ingresar');
+  }
+  btn.disabled=false;
+  btn.textContent=editCId?'Guardar cambios':'Crear coordinador';
+  closeM('m-coord');await loadAll();renderCoords();
+}
+
+async function delCoord(id){
+  if(!confirm('¿Eliminar este coordinador?'))return;
+  await SB.from('coordinadores').delete().eq('id',id);
+  await loadAll();renderCoords();
+  showToast('🗑 Coordinador eliminado');
+}
+
+// ══ ÁREAS ══
+function renderAreas(){
+  document.getElementById('areas-tbody').innerHTML=ALL.areas.map(a=>{
+    const count=ALL.trabajadores.filter(w=>w.area===a.nombre).length;
+    return `<tr>
+      <td><strong>${a.nombre}</strong></td>
+      <td style="color:var(--muted);font-size:12.5px">${a.descripcion||'—'}</td>
+      <td><span class="badge bo">${count} trabajador${count!==1?'es':''}</span></td>
+      <td>
+        <button class="btn btn-ghost btn-sm" onclick="editArea('${a.id}')">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="delArea('${a.id}')">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openArea(){
+  editAId=null;
+  document.getElementById('m-area-title').textContent='Nueva Área';
+  document.getElementById('a-nombre').value='';
+  document.getElementById('a-desc').value='';
+  openM('m-area');
+}
+
+function editArea(id){
+  editAId=id;
+  const a=ALL.areas.find(x=>x.id===id);
+  document.getElementById('m-area-title').textContent='Editar Área';
+  document.getElementById('a-nombre').value=a.nombre;
+  document.getElementById('a-desc').value=a.descripcion||'';
+  openM('m-area');
+}
+
+async function saveArea(){
+  const nombre=document.getElementById('a-nombre').value.trim();
+  if(!nombre){showToast('⚠️ El nombre es obligatorio');return;}
+  const data={nombre,descripcion:document.getElementById('a-desc').value};
+  if(editAId){
+    await SB.from('areas').update(data).eq('id',editAId);
+    showToast('✅ Área actualizada');
+  } else {
+    await SB.from('areas').insert(data);
+    showToast('✅ Área creada');
+  }
+  closeM('m-area');await loadAll();renderAreas();
+}
+
+async function delArea(id){
+  if(!confirm('¿Eliminar esta área?'))return;
+  await SB.from('areas').delete().eq('id',id);
+  await loadAll();renderAreas();
+  showToast('🗑 Área eliminada');
+}
+
+// ══ UTILS ══
+function openM(id){document.getElementById(id).classList.add('open');}
+function closeM(id){document.getElementById(id).classList.remove('open');}
+function setV(id,val){const el=document.getElementById(id);if(el&&val!==null&&val!==undefined)el.value=val;}
+
+function switchTab(el,tid){
+  const modal=el.closest('.modal')||document.body;
+  modal.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  ['t-personal','t-laboral','t-alojamiento'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display='none';});
+  const t=document.getElementById(tid);if(t)t.style.display='';
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.style.display='block';
+  setTimeout(()=>t.style.display='none',3500);
+}
+
+document.querySelectorAll('.overlay').forEach(o=>{
+  o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');});
+});
+</script>
+</body>
+</html>

@@ -317,6 +317,7 @@ tbody tr:hover{background:#FAFAFA}
   @page { margin: 1.5cm; size: A4; }
 }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -412,7 +413,10 @@ tbody tr:hover{background:#FAFAFA}
       <!-- TRABAJADORES -->
       <div class="section" id="s-trabajadores">
         <div class="panel">
-          <div class="ph"><span class="ph-title">REGISTRO DE PERSONAL</span><button class="btn btn-primary btn-sm" id="btn-nuevo-w" onclick="openWorker()">+ Nuevo trabajador</button></div>
+          <div class="ph"><span class="ph-title">REGISTRO DE PERSONAL</span><div style="display:flex;gap:8px">
+              <button class="btn btn-primary btn-sm" id="btn-nuevo-w" onclick="openWorker()">+ Nuevo trabajador</button>
+              <button class="btn btn-ghost btn-sm" onclick="openCargaMasiva()">📥 Carga masiva</button>
+            </div></div>
           <div class="pb">
             <div class="search-row">
               <div class="si-wrap"><span class="si-icon">🔍</span><input type="text" id="sw-q" placeholder="Buscar por nombre o código..." oninput="filterW()"></div>
@@ -831,6 +835,50 @@ tbody tr:hover{background:#FAFAFA}
       <button class="btn btn-ghost" id="btn-worker-prev" onclick="wizardPrev()" style="display:none">← Anterior</button>
       <button class="btn btn-primary" id="btn-worker-next" onclick="wizardNext()">Siguiente →</button>
       <button class="btn btn-primary" id="btn-save-worker" onclick="saveWorker()" style="display:none">✅ Guardar trabajador</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CARGA MASIVA -->
+<div class="overlay" id="m-carga-masiva">
+  <div class="modal wide">
+    <div class="mh"><span class="mh-title">📥 Carga Masiva de Personal</span><button class="mclose" onclick="closeM('m-carga-masiva')">×</button></div>
+    <div class="mb">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+        <div style="background:var(--bg);border:1px solid var(--line-l);border-radius:8px;padding:16px;text-align:center">
+          <div style="font-size:24px;margin-bottom:8px">📋</div>
+          <div style="font-weight:700;margin-bottom:6px">Paso 1 — Descarga la plantilla</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Excel con todas las columnas requeridas y ejemplos</div>
+          <button class="btn btn-primary" onclick="descargarPlantilla()">⬇️ Descargar plantilla Excel</button>
+        </div>
+        <div style="background:var(--bg);border:1px solid var(--line-l);border-radius:8px;padding:16px;text-align:center">
+          <div style="font-size:24px;margin-bottom:8px">📤</div>
+          <div style="font-weight:700;margin-bottom:6px">Paso 2 — Sube el Excel completado</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:12px">El sistema registrará todos los trabajadores automáticamente</div>
+          <input type="file" id="input-excel-masivo" accept=".xlsx,.xls" style="display:none" onchange="procesarExcelMasivo(this)">
+          <button class="btn btn-primary" onclick="document.getElementById('input-excel-masivo').click()">📂 Seleccionar archivo Excel</button>
+        </div>
+      </div>
+      <div id="carga-masiva-preview" style="display:none">
+        <div style="font-size:13px;font-weight:700;margin-bottom:10px" id="carga-masiva-titulo"></div>
+        <div style="max-height:300px;overflow-y:auto;border:1px solid var(--line-l);border-radius:6px">
+          <table class="print-table" id="carga-masiva-tabla">
+            <thead><tr><th>#</th><th>Nombre</th><th>Pasaporte</th><th>País</th><th>Hospedaje</th><th>Pareja</th><th>Estado</th></tr></thead>
+            <tbody id="carga-masiva-tbody"></tbody>
+          </table>
+        </div>
+        <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center">
+          <div id="carga-masiva-resumen" style="font-size:12px;color:var(--muted)"></div>
+          <button class="btn btn-primary" id="btn-confirmar-carga" onclick="confirmarCargaMasiva()">✅ Confirmar e importar todos</button>
+        </div>
+      </div>
+      <div id="carga-masiva-progreso" style="display:none;text-align:center;padding:20px">
+        <div style="font-size:24px;margin-bottom:8px">⏳</div>
+        <div id="carga-masiva-progreso-texto" style="font-weight:600">Importando trabajadores...</div>
+        <div style="background:var(--line-l);border-radius:10px;height:8px;margin-top:12px;overflow:hidden">
+          <div id="carga-masiva-barra" style="background:var(--sun);height:100%;width:0%;transition:width .3s;border-radius:10px"></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -2587,9 +2635,42 @@ function renderNovInduccion(){
 }
 
 async function marcarInduccionCompletada(id){
-  await SB.from('trabajadores').update({induccion_completada:true}).eq('id',id);
-  await loadAll();renderNovInduccion();updateNovedadesBadge();
-  showToast('✅ Inducción marcada como completada');
+  const w = ALL.trabajadores.find(x=>x.id===id);
+  if(!w) return;
+  // Pedir ID obligatorio
+  const modal = document.createElement('div');
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center';
+  modal.innerHTML=`<div style="background:white;border-radius:10px;padding:24px;width:400px;border-top:3px solid var(--sun)">
+    <div style="font-family:Montserrat,sans-serif;font-weight:800;font-size:16px;margin-bottom:6px">✅ Completar Inducción</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:16px">${w.nombre}</div>
+    <div style="background:var(--sun-soft);border:1px solid rgba(245,166,35,.3);border-radius:6px;padding:10px 14px;font-size:12px;margin-bottom:14px">
+      🔑 Para completar la inducción debes asignar el <strong>ID único</strong> del trabajador. Este ID no se puede cambiar después.
+    </div>
+    <div class="field" style="margin-bottom:16px">
+      <label>ID único del trabajador</label>
+      <input id="ind-id-input" placeholder="Ej: SG-2026-001" style="width:100%;padding:10px;border:2px solid var(--sun);border-radius:5px;font-size:14px;font-family:monospace;font-weight:700;text-transform:uppercase">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="this.closest('div[style*=fixed]').remove()" style="padding:8px 16px;border:1.5px solid var(--line-l);border-radius:5px;background:white;cursor:pointer">Cancelar</button>
+      <button onclick="guardarInduccionConId('${id}',this)" style="padding:8px 16px;background:var(--sun);border:none;border-radius:5px;font-weight:700;cursor:pointer">✅ Completar inducción</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  setTimeout(()=>document.getElementById('ind-id-input')?.focus(),100);
+}
+
+async function guardarInduccionConId(wId, btn){
+  const idInput = document.getElementById('ind-id-input');
+  const codigo = idInput?.value?.trim()?.toUpperCase();
+  if(!codigo){ showToast('⚠️ El ID es obligatorio para completar la inducción'); return; }
+  // Verificar que el ID no esté duplicado
+  const {data:existing} = await SB.from('trabajadores').select('id,nombre').eq('codigo',codigo).neq('id',wId);
+  if(existing&&existing.length>0){ showToast(`⚠️ El ID "${codigo}" ya está asignado a ${existing[0].nombre}`); return; }
+  btn.textContent='Guardando...';btn.disabled=true;
+  await SB.from('trabajadores').update({induccion_completada:true, codigo, tiene_induccion:true}).eq('id',wId);
+  btn.closest('div[style*="fixed"]').remove();
+  await loadAll();renderNovInduccion();renderNovPendientes();updateNovedadesBadge();
+  showToast('✅ Inducción completada — ID asignado: '+codigo);
 }
 
 function renderNovEspera(){
@@ -3845,6 +3926,206 @@ function imprimirReportePendientes(){
 
 function pRow(label, val){
   return `<div class="print-row"><span class="print-label">${label}</span><span class="print-val">${val}</span></div>`;
+}
+
+// ══ CARGA MASIVA ══
+let datosCargaMasiva = [];
+
+function openCargaMasiva(){
+  datosCargaMasiva = [];
+  document.getElementById('carga-masiva-preview').style.display = 'none';
+  document.getElementById('carga-masiva-progreso').style.display = 'none';
+  document.getElementById('input-excel-masivo').value = '';
+  openM('m-carga-masiva');
+}
+
+function descargarPlantilla(){
+  // Generar plantilla Excel usando SheetJS
+  const XLSX = window.XLSX;
+  if(!XLSX){ showToast('⚠️ Cargando librería, intenta de nuevo'); return; }
+  
+  const headers = [
+    'NOMBRE COMPLETO','PASAPORTE','PAÍS DE ORIGEN','FECHA DE NACIMIENTO',
+    'TELÉFONO','FECHA DE INGRESO','ESTADO','ESTADO PAREJA','PASAPORTE PAREJA',
+    'TIENE VEHÍCULO','PLACA VEHÍCULO','NOMBRE HOSPEDAJE','NOMBRE HABITACIÓN',
+    'IBAN','NÚMERO DE CUENTA','BANCO','TIPO DE CUENTA'
+  ];
+  
+  const instrucciones = ['⚠️ Campos OBLIGATORIOS: NOMBRE COMPLETO, PASAPORTE, PAÍS DE ORIGEN, FECHA DE INGRESO, ESTADO'];
+  const ejemplo = [
+    'Juan Carlos Pérez García','AB123456','Colombia','15/05/1992',
+    '+57300123456','01/07/2026','Activo','pareja-interna','CD789012',
+    'no','','CASA 1 Sławków','Habitación 3',
+    'PL00 0000 0000 0000 0000 0000 0000','1234567890','PKO Bank Polski','Ahorro'
+  ];
+  
+  const wb = XLSX.utils.book_new();
+  const wsData = [instrucciones, headers, ejemplo];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  
+  // Ancho de columnas
+  ws['!cols'] = [30,18,20,18,20,18,15,20,22,15,18,25,22,35,22,25,18].map(w=>({wch:w}));
+  
+  XLSX.utils.book_append_sheet(wb, ws, 'Trabajadores');
+  XLSX.writeFile(wb, 'Plantilla_CargaMasiva_SunGroup.xlsx');
+  showToast('✅ Plantilla descargada');
+}
+
+async function procesarExcelMasivo(input){
+  const file = input.files[0];
+  if(!file) return;
+  const XLSX = window.XLSX;
+  if(!XLSX){ showToast('⚠️ Error al cargar librería Excel'); return; }
+  
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const wb = XLSX.read(e.target.result, {type:'binary', cellDates:true});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+    
+    // Buscar fila de encabezados
+    let headerRow = -1;
+    for(let i=0;i<rows.length;i++){
+      if(rows[i].includes('NOMBRE COMPLETO')||rows[i].includes('Nombre Completo')){
+        headerRow = i; break;
+      }
+    }
+    if(headerRow === -1){ showToast('⚠️ No se encontraron los encabezados en el Excel'); return; }
+    
+    const headers = rows[headerRow].map(h=>h.toString().trim().toUpperCase());
+    const dataRows = rows.slice(headerRow+1).filter(r=>r[0]&&r[0].toString().trim());
+    
+    const getVal = (row, colName) => {
+      const idx = headers.indexOf(colName.toUpperCase());
+      return idx>=0 ? (row[idx]||'').toString().trim() : '';
+    };
+    
+    datosCargaMasiva = dataRows.map((row,i) => ({
+      nombre: getVal(row,'NOMBRE COMPLETO'),
+      pasaporte: getVal(row,'PASAPORTE'),
+      pais_origen: getVal(row,'PAÍS DE ORIGEN')||getVal(row,'PAIS DE ORIGEN'),
+      fecha_nacimiento: getVal(row,'FECHA DE NACIMIENTO')||null,
+      telefono: getVal(row,'TELÉFONO')||getVal(row,'TELEFONO'),
+      fecha_ingreso: getVal(row,'FECHA DE INGRESO')||null,
+      estado: getVal(row,'ESTADO')||'Activo',
+      pareja_estado: getVal(row,'ESTADO PAREJA')||'soltero',
+      pasaporte_pareja: getVal(row,'PASAPORTE PAREJA'),
+      tiene_carro: getVal(row,'TIENE VEHÍCULO')||getVal(row,'TIENE VEHICULO')==='si',
+      placa_auto: getVal(row,'PLACA VEHÍCULO')||getVal(row,'PLACA VEHICULO')||null,
+      hospedaje_nombre: getVal(row,'NOMBRE HOSPEDAJE'),
+      habitacion_nombre: getVal(row,'NOMBRE HABITACIÓN')||getVal(row,'NOMBRE HABITACION'),
+      iban: getVal(row,'IBAN')||null,
+      cuenta_bancaria: getVal(row,'NÚMERO DE CUENTA')||getVal(row,'NUMERO DE CUENTA')||null,
+      banco: getVal(row,'BANCO')||null,
+      tipo_cuenta: getVal(row,'TIPO DE CUENTA')||null,
+      _idx: i+1
+    })).filter(r => r.nombre && r.pasaporte);
+    
+    if(!datosCargaMasiva.length){ showToast('⚠️ No se encontraron registros válidos'); return; }
+    
+    // Mostrar preview
+    const tbody = document.getElementById('carga-masiva-tbody');
+    tbody.innerHTML = datosCargaMasiva.map(w => {
+      const h = w.hospedaje_nombre || '—';
+      const pareja = w.pasaporte_pareja ? `💑 ${w.pasaporte_pareja}` : 'Soltero/a';
+      return `<tr>
+        <td>${w._idx}</td>
+        <td><strong>${w.nombre}</strong></td>
+        <td class="mono">${w.pasaporte}</td>
+        <td>${w.pais_origen}</td>
+        <td>${h}</td>
+        <td>${pareja}</td>
+        <td><span class="badge ${w.estado==='Activo'?'bg':'br'}">${w.estado}</span></td>
+      </tr>`;
+    }).join('');
+    
+    document.getElementById('carga-masiva-titulo').textContent = `Vista previa — ${datosCargaMasiva.length} trabajadores encontrados`;
+    document.getElementById('carga-masiva-resumen').textContent = 
+      `${datosCargaMasiva.filter(w=>w.pasaporte_pareja).length} parejas detectadas · ${datosCargaMasiva.filter(w=>w.hospedaje_nombre).length} con hospedaje`;
+    document.getElementById('carga-masiva-preview').style.display = '';
+  };
+  reader.readAsBinaryString(file);
+}
+
+async function confirmarCargaMasiva(){
+  if(!datosCargaMasiva.length) return;
+  
+  document.getElementById('carga-masiva-preview').style.display = 'none';
+  document.getElementById('carga-masiva-progreso').style.display = '';
+  const barra = document.getElementById('carga-masiva-barra');
+  const texto = document.getElementById('carga-masiva-progreso-texto');
+  
+  let exitosos = 0, errores = 0;
+  const idMap = {}; // pasaporte → id insertado
+  
+  // Paso 1: Insertar todos los trabajadores
+  for(let i=0; i<datosCargaMasiva.length; i++){
+    const w = datosCargaMasiva[i];
+    texto.textContent = `Registrando ${i+1} de ${datosCargaMasiva.length}: ${w.nombre}...`;
+    barra.style.width = `${Math.round((i/datosCargaMasiva.length)*70)}%`;
+    
+    // Buscar hospedaje y habitación
+    const hosp = w.hospedaje_nombre ? ALL.hospedajes.find(h=>h.nombre.toLowerCase()===w.hospedaje_nombre.toLowerCase()) : null;
+    const hab = (hosp && w.habitacion_nombre) ? ALL.habitaciones.find(r=>r.hospedaje_id===hosp.id&&r.nombre.toLowerCase()===w.habitacion_nombre.toLowerCase()) : null;
+    
+    const data = {
+      nombre: w.nombre,
+      pasaporte: w.pasaporte,
+      pais_origen: w.pais_origen,
+      fecha_nacimiento: w.fecha_nacimiento||null,
+      telefono: w.telefono||null,
+      fecha_ingreso: w.fecha_ingreso||null,
+      estado: w.estado||'Activo',
+      pareja_estado: w.pareja_estado||'soltero',
+      tiene_carro: w.tiene_carro||false,
+      placa_auto: w.placa_auto||null,
+      hospedaje_id: hosp?.id||null,
+      habitacion_id: hab?.id||null,
+      iban: w.iban||null,
+      cuenta_bancaria: w.cuenta_bancaria||null,
+      banco: w.banco||null,
+      tipo_cuenta: w.tipo_cuenta||null,
+      en_espera_hospedaje: !hosp,
+      registrado_por: CU.nombre,
+    };
+    
+    const {data:inserted, error} = await SB.from('trabajadores').insert(data).select('id').single();
+    if(error){ errores++; continue; }
+    idMap[w.pasaporte] = inserted.id;
+    exitosos++;
+  }
+  
+  // Paso 2: Vincular parejas
+  texto.textContent = 'Vinculando parejas...';
+  barra.style.width = '80%';
+  
+  for(const w of datosCargaMasiva){
+    if(!w.pasaporte_pareja || !idMap[w.pasaporte]) continue;
+    const wId = idMap[w.pasaporte];
+    // Buscar pareja en los recién insertados o en el sistema
+    let parejaId = idMap[w.pasaporte_pareja];
+    if(!parejaId){
+      const {data:found} = await SB.from('trabajadores').select('id').eq('pasaporte',w.pasaporte_pareja).single();
+      if(found) parejaId = found.id;
+    }
+    if(parejaId){
+      await SB.from('trabajadores').update({pareja_id:parejaId, pareja_estado:'pareja-interna'}).eq('id',wId);
+      await SB.from('trabajadores').update({pareja_id:wId, pareja_estado:'pareja-interna'}).eq('id',parejaId);
+    }
+  }
+  
+  barra.style.width = '100%';
+  texto.textContent = `✅ Importación completada: ${exitosos} registrados${errores>0?`, ${errores} con errores`:''}`;
+  
+  await loadAll();
+  filterW();
+  renderDashboard();
+  updateNovedadesBadge();
+  
+  setTimeout(()=>{
+    closeM('m-carga-masiva');
+    showToast(`✅ ${exitosos} trabajadores importados exitosamente`);
+  }, 2000);
 }
 
 // ══ UTILS ══

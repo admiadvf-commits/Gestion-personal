@@ -280,6 +280,8 @@ tbody tr:hover{background:#FAFAFA}
 }
 
 
+.recien-cargado { animation: highlight-new 3s ease-out; }
+@keyframes highlight-new { 0%{background:#FFF4E0} 100%{background:transparent} }
 /* ══ ESTILOS DE IMPRESIÓN ══ */
 @media print {
   body * { visibility: hidden; }
@@ -3930,6 +3932,7 @@ function pRow(label, val){
 
 // ══ CARGA MASIVA ══
 let datosCargaMasiva = [];
+let ultimosCargados = [];
 
 function openCargaMasiva(){
   datosCargaMasiva = [];
@@ -4049,29 +4052,34 @@ async function procesarExcelMasivo(input){
 
 async function confirmarCargaMasiva(){
   if(!datosCargaMasiva.length) return;
-  
+
   document.getElementById('carga-masiva-preview').style.display = 'none';
   document.getElementById('carga-masiva-progreso').style.display = '';
   const barra = document.getElementById('carga-masiva-barra');
   const texto = document.getElementById('carga-masiva-progreso-texto');
-  
-  let exitosos = 0, errores = 0;
-  const idMap = {}; // pasaporte → id insertado
-  
+
+  let exitosos = 0, errores = 0, errList = [];
+  const idMap = {};
+  const idsInsertados = [];
+
   // Paso 1: Insertar todos los trabajadores
   for(let i=0; i<datosCargaMasiva.length; i++){
     const w = datosCargaMasiva[i];
     texto.textContent = `Registrando ${i+1} de ${datosCargaMasiva.length}: ${w.nombre}...`;
     barra.style.width = `${Math.round((i/datosCargaMasiva.length)*70)}%`;
-    
-    // Buscar hospedaje y habitación
-    const hosp = w.hospedaje_nombre ? ALL.hospedajes.find(h=>h.nombre.toLowerCase()===w.hospedaje_nombre.toLowerCase()) : null;
-    const hab = (hosp && w.habitacion_nombre) ? ALL.habitaciones.find(r=>r.hospedaje_id===hosp.id&&r.nombre.toLowerCase()===w.habitacion_nombre.toLowerCase()) : null;
-    
+
+    // Buscar hospedaje y habitación por nombre exacto
+    const hosp = w.hospedaje_nombre ? ALL.hospedajes.find(h=>h.nombre.trim().toLowerCase()===w.hospedaje_nombre.trim().toLowerCase()) : null;
+    const hab = (hosp && w.habitacion_nombre) ? ALL.habitaciones.find(r=>r.hospedaje_id===hosp.id&&r.nombre.trim().toLowerCase()===w.habitacion_nombre.trim().toLowerCase()) : null;
+
+    // Detectar pendientes
+    const sinHosp = !hosp;
+    const sinArea = !w.area;
+
     const data = {
       nombre: w.nombre,
       pasaporte: w.pasaporte,
-      pais_origen: w.pais_origen,
+      pais_origen: w.pais_origen||null,
       fecha_nacimiento: w.fecha_nacimiento||null,
       telefono: w.telefono||null,
       fecha_ingreso: w.fecha_ingreso||null,
@@ -4085,47 +4093,70 @@ async function confirmarCargaMasiva(){
       cuenta_bancaria: w.cuenta_bancaria||null,
       banco: w.banco||null,
       tipo_cuenta: w.tipo_cuenta||null,
-      en_espera_hospedaje: !hosp,
+      en_espera_hospedaje: sinHosp,
       registrado_por: CU.nombre,
+      tiene_area: false,
+      tiene_induccion: false,
+      tiene_ruta: false,
     };
-    
+
     const {data:inserted, error} = await SB.from('trabajadores').insert(data).select('id').single();
-    if(error){ errores++; continue; }
+    if(error){
+      errores++;
+      errList.push(`${w.nombre}: ${error.message}`);
+      continue;
+    }
     idMap[w.pasaporte] = inserted.id;
+    idsInsertados.push(inserted.id);
     exitosos++;
   }
-  
+
   // Paso 2: Vincular parejas
   texto.textContent = 'Vinculando parejas...';
   barra.style.width = '80%';
-  
   for(const w of datosCargaMasiva){
     if(!w.pasaporte_pareja || !idMap[w.pasaporte]) continue;
     const wId = idMap[w.pasaporte];
-    // Buscar pareja en los recién insertados o en el sistema
     let parejaId = idMap[w.pasaporte_pareja];
     if(!parejaId){
-      const {data:found} = await SB.from('trabajadores').select('id').eq('pasaporte',w.pasaporte_pareja).single();
+      const {data:found} = await SB.from('trabajadores').select('id').eq('pasaporte',w.pasaporte_pareja).maybeSingle();
       if(found) parejaId = found.id;
     }
     if(parejaId){
-      await SB.from('trabajadores').update({pareja_id:parejaId, pareja_estado:'pareja-interna'}).eq('id',wId);
-      await SB.from('trabajadores').update({pareja_id:wId, pareja_estado:'pareja-interna'}).eq('id',parejaId);
+      await SB.from('trabajadores').update({pareja_id:parejaId,pareja_estado:'pareja-interna'}).eq('id',wId);
+      await SB.from('trabajadores').update({pareja_id:wId,pareja_estado:'pareja-interna'}).eq('id',parejaId);
     }
   }
-  
+
   barra.style.width = '100%';
-  texto.textContent = `✅ Importación completada: ${exitosos} registrados${errores>0?`, ${errores} con errores`:''}`;
-  
+  texto.textContent = `✅ ${exitosos} registrados correctamente${errores>0?` · ⚠️ ${errores} con errores`:''}`;
+
+  // Recargar datos
   await loadAll();
   filterW();
   renderDashboard();
   updateNovedadesBadge();
-  
-  setTimeout(()=>{
-    closeM('m-carga-masiva');
-    showToast(`✅ ${exitosos} trabajadores importados exitosamente`);
-  }, 2000);
+
+  await new Promise(r=>setTimeout(r,1500));
+  closeM('m-carga-masiva');
+
+  // Redirigir a trabajadores y resaltar los nuevos
+  nav('trabajadores', document.querySelector('.sb-item'));
+  ultimosCargados = idsInsertados;
+  filterW();
+
+  // Mostrar resumen de pendientes
+  const sinHospCount = datosCargaMasiva.filter(w=>!ALL.hospedajes.find(h=>h.nombre.trim().toLowerCase()===w.hospedaje_nombre?.trim().toLowerCase())).length;
+  const sinAreaCount = datosCargaMasiva.filter(w=>!w.area).length;
+
+  let msg = `✅ ${exitosos} trabajadores importados`;
+  const pends = [];
+  if(sinHospCount>0) pends.push(`${sinHospCount} sin hospedaje`);
+  if(sinAreaCount>0) pends.push(`${sinAreaCount} sin área`);
+  if(pends.length) msg += ` · ⚠️ Pendientes: ${pends.join(', ')} — ver Novedades`;
+  showToast(msg, 5000);
+
+  if(errores>0) console.warn('Errores en carga masiva:', errList);
 }
 
 // ══ UTILS ══
